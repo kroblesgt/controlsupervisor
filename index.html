@@ -109,7 +109,8 @@
         .p-sat { background: #e0e7ff; color: #3730a3; margin-top: 5px;}
         .p-info { background: #e0f2fe; color: #0284c7; }
 
-        .buscador-input { width: 100%; max-width: 400px; padding: 10px 20px; border-radius: 20px; margin: 0; background: #fff;}
+        .buscador-input { width: 100%; padding: 10px 20px; border-radius: 8px; margin: 0; background: #fff;}
+        .filtro-rapido { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--primary); background: #eff6ff; color: var(--primary); font-weight: 600;}
 
         .timeline { border-left: 2px solid var(--border); padding-left: 25px; margin-top: 20px; margin-left: 10px; }
         .timeline-item { margin-bottom: 25px; position: relative; }
@@ -118,7 +119,6 @@
         .tl-fecha { font-size: 0.8em; color: var(--text-muted); font-weight: 600;}
         .tl-cuerpo { background: #f8fafc; border: 1px solid var(--border); padding: 15px; border-radius: 8px; font-size: 0.95em; }
 
-        /* Estilo para el banner de información del ticket */
         .ticket-info-banner { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap;}
         .info-box { flex: 1; min-width: 200px; }
         .info-box label { color: var(--text-muted); font-size: 0.75em; text-transform: uppercase; margin-bottom: 4px; }
@@ -207,14 +207,27 @@
             <!-- MÓDULO 2: CASOS PENDIENTES -->
             <div id="moduloActivos" class="modulo">
                 <div class="section-card">
-                    <div class="section-header">
-                        <h3>Pipeline de Casos Activos</h3>
-                        <input type="text" id="busquedaActivos" class="buscador-input" placeholder="🔍 Buscar por ticket, cliente, teléfono, NIT..." onkeyup="filtrarTablas()">
+                    <div class="section-header" style="display: flex; flex-direction: column; align-items: flex-start; gap: 15px;">
+                        <h3 style="margin: 0;">Pipeline de Casos Activos</h3>
+                        
+                        <!-- NUEVO: Controles de Búsqueda y Filtro de Gestión -->
+                        <div style="display: flex; gap: 15px; width: 100%;">
+                            <div style="flex: 1;">
+                                <input type="text" id="busquedaActivos" class="buscador-input" placeholder="🔍 Buscar ticket, cliente, teléfono, NIT..." onkeyup="filtrarTablas()">
+                            </div>
+                            <div style="flex: 1;">
+                                <select id="filtroGestionHoy" class="filtro-rapido" onchange="filtrarTablas()">
+                                    <option value="todos">📋 Mostrar Todos los Pendientes</option>
+                                    <option value="sin_tocar" selected>⏳ Solo los que REQUIEREN ACCIÓN HOY</option>
+                                    <option value="tocados">✅ Mostrar solo ya gestionados hoy</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     <div class="table-container">
                         <table id="tablaActivos">
                             <thead>
-                                <tr><th>Ticket & Detalles</th><th>Contacto & IDs</th><th>Asesor & Motivo</th><th>Semáforo / Satisfacción</th><th>Estatus Actual</th><th>Acción</th></tr>
+                                <tr><th>Ticket & Detalles</th><th>Contacto & IDs</th><th>Asesor & Motivo</th><th>Semáforo / Satisfacción</th><th>Estatus / Gestión</th><th>Acción</th></tr>
                             </thead>
                             <tbody id="listaActivos"></tbody>
                         </table>
@@ -227,7 +240,7 @@
                 <div class="section-card" style="border-top: 4px solid var(--success);">
                     <div class="section-header">
                         <h3>Archivo Histórico de Soluciones</h3>
-                        <input type="text" id="busquedaResueltos" class="buscador-input" placeholder="🔍 Buscar en el historial..." onkeyup="filtrarTablas()">
+                        <input type="text" id="busquedaResueltos" class="buscador-input" style="max-width: 400px;" placeholder="🔍 Buscar en el historial..." onkeyup="filtrarTablas()">
                     </div>
                     <div class="table-container">
                         <table id="tablaResueltos">
@@ -343,7 +356,6 @@
                     </div>
                 </div>
 
-                <!-- NUEVO: Banner de Información Origen del Ticket -->
                 <div class="ticket-info-banner">
                     <div class="info-box">
                         <label>Asesor que Escala</label>
@@ -497,7 +509,12 @@
             });
 
             if(modulo === 'panel') { document.getElementById('moduloPanel').classList.add('activo'); document.getElementById('tabPanel').classList.add('activo'); }
-            else if(modulo === 'activos') { document.getElementById('moduloActivos').classList.add('activo'); document.getElementById('tabActivos').classList.add('activo'); } 
+            else if(modulo === 'activos') { 
+                document.getElementById('moduloActivos').classList.add('activo'); 
+                document.getElementById('tabActivos').classList.add('activo'); 
+                document.getElementById('filtroGestionHoy').value = 'sin_tocar'; // Por defecto mostrar lo que falta hoy
+                filtrarTablas(); // Ejecutar el filtro
+            } 
             else if(modulo === 'resueltos') { document.getElementById('moduloResueltos').classList.add('activo'); document.getElementById('tabResueltos').classList.add('activo'); } 
             else if (modulo === 'creacion') { document.getElementById('moduloCreacion').classList.add('activo'); document.getElementById('tabCreacion').classList.add('activo'); } 
             else if (modulo === 'historial') { document.getElementById('moduloHistorial').classList.add('activo'); }
@@ -507,6 +524,19 @@
             const estatusActual = document.getElementById('updateEstatus').value;
             if(estatusActual === 'Resuelto') cambiarModulo('resueltos');
             else cambiarModulo('activos');
+        }
+
+        // --- LÓGICA: ¿FUE GESTIONADO HOY? ---
+        function fueGestionadoHoy(historialArray) {
+            if (!historialArray || historialArray.length === 0) return false;
+            // En firebase el historial es un array, el último elemento insertado es el último índice
+            const ultimoRegistro = historialArray[historialArray.length - 1];
+            const fechaUltimaAccion = new Date(ultimoRegistro.fecha);
+            const hoy = new Date();
+            
+            return fechaUltimaAccion.getDate() === hoy.getDate() &&
+                   fechaUltimaAccion.getMonth() === hoy.getMonth() &&
+                   fechaUltimaAccion.getFullYear() === hoy.getFullYear();
         }
 
         // --- AUTENTICACIÓN ---
@@ -575,8 +605,7 @@
                 
                 calcularKpisYPromesas(casosGlobalesActivos); 
                 renderizarGraficas(casosParaGraficas); 
-                renderizarTabla(casosGlobalesActivos, 'listaActivos', true); 
-                renderizarTabla(casosGlobalesResueltos, 'listaResueltos', false); 
+                filtrarTablas(); // Filtrado por defecto
             });
         }
 
@@ -669,7 +698,7 @@
         function renderizarTabla(arrayCasos, idTbody, esActivo) {
             const tbody = document.getElementById(idTbody);
             tbody.innerHTML = '';
-            if(arrayCasos.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 30px; color:var(--text-muted);">No hay casos ${esActivo?'pendientes':'resueltos'}.</td></tr>`;
+            if(arrayCasos.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 30px; color:var(--text-muted);">No hay casos para mostrar con los filtros actuales.</td></tr>`;
 
             arrayCasos.forEach(caso => {
                 let pRiesgo = caso.nivel_riesgo === 'Verde' ? 'p-verde' : caso.nivel_riesgo === 'Amarillo' ? 'p-amarillo' : 'p-rojo';
@@ -679,13 +708,22 @@
                 let satisfaccion = `<br><span class="pildora p-sat">${caso.satisfaccion || 'No Evaluado'}</span>`;
                 let asesorInfo = `<span style="font-weight:600; color:var(--text-main);"><span class="pildora p-info">${caso.asesor}</span></span><br><small style="color:var(--text-muted);">${caso.motivo}</small>`;
 
+                // NUEVO: Píldora Visual de Gestión
+                let badgeGestionHoy = "";
+                if(esActivo) {
+                    const loToqueHoy = fueGestionadoHoy(caso.historial);
+                    badgeGestionHoy = loToqueHoy 
+                        ? `<br><span class="pildora p-verde" style="margin-top:8px;">✅ Gestionado Hoy</span>` 
+                        : `<br><span class="pildora p-amarillo" style="margin-top:8px;">⏳ Requiere Acción</span>`;
+                }
+
                 tbody.innerHTML += `
                     <tr>
                         <td><strong style="color:var(--text-main); font-size:1.05em;">${caso.ticket}</strong><br><span style="color:var(--text-muted);">${caso.cliente}</span></td>
                         <td><small><strong>Tel:</strong> ${caso.telefono}</small><br><small style="color:var(--text-muted);">${buildIDsString(caso)}</small></td>
                         <td>${asesorInfo}</td>
                         <td><span class="pildora ${pRiesgo}">${caso.nivel_riesgo}</span>${satisfaccion}${htmlLlamada}</td>
-                        <td>${htmlEstatus}${textoPromesa}</td>
+                        <td>${htmlEstatus}${textoPromesa}${badgeGestionHoy}</td>
                         <td><button class="btn-accion" onclick="abrirHistorial('${caso.id}')">${esActivo?'Gestionar':'Ver Historial'}</button></td>
                     </tr>
                 `;
@@ -693,10 +731,23 @@
         }
 
         window.filtrarTablas = function() {
+            // Filtros de Activos
             const txtActivos = document.getElementById('busquedaActivos').value.toLowerCase();
-            const filtActivos = casosGlobalesActivos.filter(c => `${c.telefono} ${c.cliente} ${c.ticket} ${c.asesor || ''} ${c.motivo || ''} ${c.nit || ''} ${c.neotel || ''} ${c.orden || ''}`.toLowerCase().includes(txtActivos));
+            const filtroGestion = document.getElementById('filtroGestionHoy').value;
+
+            const filtActivos = casosGlobalesActivos.filter(c => {
+                const matchTexto = `${c.telefono} ${c.cliente} ${c.ticket} ${c.asesor || ''} ${c.motivo || ''} ${c.nit || ''} ${c.neotel || ''} ${c.orden || ''}`.toLowerCase().includes(txtActivos);
+                
+                let matchFiltroHoy = true;
+                const loToqueHoy = fueGestionadoHoy(c.historial);
+                if(filtroGestion === 'sin_tocar') matchFiltroHoy = !loToqueHoy;
+                if(filtroGestion === 'tocados') matchFiltroHoy = loToqueHoy;
+
+                return matchTexto && matchFiltroHoy;
+            });
             renderizarTabla(filtActivos, 'listaActivos', true);
 
+            // Filtros de Resueltos (El filtro de gestión no aplica a los resueltos)
             const txtResueltos = document.getElementById('busquedaResueltos').value.toLowerCase();
             const filtResueltos = casosGlobalesResueltos.filter(c => `${c.telefono} ${c.cliente} ${c.ticket} ${c.asesor || ''} ${c.motivo || ''} ${c.nit || ''} ${c.neotel || ''} ${c.orden || ''}`.toLowerCase().includes(txtResueltos));
             renderizarTabla(filtResueltos, 'listaResueltos', false);
@@ -744,7 +795,6 @@
                     const caso = docSnap.data();
                     document.getElementById('lblTicket').innerText = caso.ticket;
                     
-                    // Llenar Banner de Información de Origen
                     document.getElementById('infoAsesor').innerText = caso.asesor || 'No especificado';
                     document.getElementById('infoCola').innerText = caso.cola || 'No especificada';
                     document.getElementById('infoMotivo').innerText = caso.motivo || 'No especificado';
