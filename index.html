@@ -210,7 +210,6 @@
                     <div class="section-header" style="display: flex; flex-direction: column; align-items: flex-start; gap: 15px;">
                         <h3 style="margin: 0;">Pipeline de Casos Activos</h3>
                         
-                        <!-- NUEVO: Controles de Búsqueda y Filtro de Gestión -->
                         <div style="display: flex; gap: 15px; width: 100%;">
                             <div style="flex: 1;">
                                 <input type="text" id="busquedaActivos" class="buscador-input" placeholder="🔍 Buscar ticket, cliente, teléfono, NIT..." onkeyup="filtrarTablas()">
@@ -362,14 +361,6 @@
                         <div id="infoAsesor">-</div>
                     </div>
                     <div class="info-box">
-                        <label>Cola de Origen</label>
-                        <div id="infoCola">-</div>
-                    </div>
-                    <div class="info-box">
-                        <label>Motivo Principal</label>
-                        <div id="infoMotivo">-</div>
-                    </div>
-                    <div class="info-box">
                         <label>Área Interna Asignada</label>
                         <div id="infoArea">-</div>
                     </div>
@@ -390,6 +381,18 @@
                             <div><label>NIT</label><input type="text" id="editNit"></div>
                             <div><label>Caso Neotel</label><input type="text" id="editNeotel"></div>
                             <div><label>No. de Orden</label><input type="text" id="editOrden"></div>
+                        </div>
+                        
+                        <!-- NUEVO: Edición de Cola y Motivo -->
+                        <div class="grid-2" style="margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px;">
+                            <div>
+                                <label>Cola de Origen</label>
+                                <select id="editCola"></select>
+                            </div>
+                            <div>
+                                <label>Motivo Principal</label>
+                                <select id="editMotivo"></select>
+                            </div>
                         </div>
 
                         <div class="grid-2" style="margin-bottom: 15px;">
@@ -482,6 +485,7 @@
         let casosGlobalesActivos = []; 
         let casosGlobalesResueltos = []; 
         let casosParaGraficas = []; 
+        let catalogosGlobales = {};
 
         let chartR, chartE, chartC;
 
@@ -512,8 +516,8 @@
             else if(modulo === 'activos') { 
                 document.getElementById('moduloActivos').classList.add('activo'); 
                 document.getElementById('tabActivos').classList.add('activo'); 
-                document.getElementById('filtroGestionHoy').value = 'sin_tocar'; // Por defecto mostrar lo que falta hoy
-                filtrarTablas(); // Ejecutar el filtro
+                document.getElementById('filtroGestionHoy').value = 'sin_tocar'; 
+                filtrarTablas(); 
             } 
             else if(modulo === 'resueltos') { document.getElementById('moduloResueltos').classList.add('activo'); document.getElementById('tabResueltos').classList.add('activo'); } 
             else if (modulo === 'creacion') { document.getElementById('moduloCreacion').classList.add('activo'); document.getElementById('tabCreacion').classList.add('activo'); } 
@@ -526,10 +530,8 @@
             else cambiarModulo('activos');
         }
 
-        // --- LÓGICA: ¿FUE GESTIONADO HOY? ---
         function fueGestionadoHoy(historialArray) {
             if (!historialArray || historialArray.length === 0) return false;
-            // En firebase el historial es un array, el último elemento insertado es el último índice
             const ultimoRegistro = historialArray[historialArray.length - 1];
             const fechaUltimaAccion = new Date(ultimoRegistro.fecha);
             const hoy = new Date();
@@ -572,15 +574,19 @@
             onSnapshot(doc(db, "configuracion", "listas_desplegables"), (docSnap) => {
                 if (docSnap.exists()) {
                     const d = docSnap.data();
-                    if(d.colas) llenarSelect('cola', d.colas);
+                    catalogosGlobales = d; // Guardar para reutilizar
+                    
+                    if(d.colas) { llenarSelect('cola', d.colas); llenarSelect('editCola', d.colas); }
                     if(d.asesores) llenarSelect('asesor', d.asesores);
-                    if(d.motivos) llenarSelect('motivo', d.motivos);
+                    if(d.motivos) { llenarSelect('motivo', d.motivos); llenarSelect('editMotivo', d.motivos); }
                     if(d.areas) llenarSelect('areaInterna', d.areas);
                 }
             });
         }
         function llenarSelect(id, datos) {
-            const sel = document.getElementById(id); const val = sel.value; sel.innerHTML = '<option value="">Seleccione...</option>';
+            const sel = document.getElementById(id); 
+            if(!sel) return;
+            const val = sel.value; sel.innerHTML = '<option value="">Seleccione...</option>';
             datos.sort().forEach(i => sel.add(new Option(i, i)));
             if (datos.includes(val)) sel.value = val;
         }
@@ -605,7 +611,7 @@
                 
                 calcularKpisYPromesas(casosGlobalesActivos); 
                 renderizarGraficas(casosParaGraficas); 
-                filtrarTablas(); // Filtrado por defecto
+                filtrarTablas(); 
             });
         }
 
@@ -708,7 +714,6 @@
                 let satisfaccion = `<br><span class="pildora p-sat">${caso.satisfaccion || 'No Evaluado'}</span>`;
                 let asesorInfo = `<span style="font-weight:600; color:var(--text-main);"><span class="pildora p-info">${caso.asesor}</span></span><br><small style="color:var(--text-muted);">${caso.motivo}</small>`;
 
-                // NUEVO: Píldora Visual de Gestión
                 let badgeGestionHoy = "";
                 if(esActivo) {
                     const loToqueHoy = fueGestionadoHoy(caso.historial);
@@ -731,7 +736,6 @@
         }
 
         window.filtrarTablas = function() {
-            // Filtros de Activos
             const txtActivos = document.getElementById('busquedaActivos').value.toLowerCase();
             const filtroGestion = document.getElementById('filtroGestionHoy').value;
 
@@ -747,7 +751,6 @@
             });
             renderizarTabla(filtActivos, 'listaActivos', true);
 
-            // Filtros de Resueltos (El filtro de gestión no aplica a los resueltos)
             const txtResueltos = document.getElementById('busquedaResueltos').value.toLowerCase();
             const filtResueltos = casosGlobalesResueltos.filter(c => `${c.telefono} ${c.cliente} ${c.ticket} ${c.asesor || ''} ${c.motivo || ''} ${c.nit || ''} ${c.neotel || ''} ${c.orden || ''}`.toLowerCase().includes(txtResueltos));
             renderizarTabla(filtResueltos, 'listaResueltos', false);
@@ -796,8 +799,6 @@
                     document.getElementById('lblTicket').innerText = caso.ticket;
                     
                     document.getElementById('infoAsesor').innerText = caso.asesor || 'No especificado';
-                    document.getElementById('infoCola').innerText = caso.cola || 'No especificada';
-                    document.getElementById('infoMotivo').innerText = caso.motivo || 'No especificado';
                     document.getElementById('infoArea').innerText = caso.area_interna || 'No especificada';
 
                     document.getElementById('editTelefono').value = caso.telefono || '';
@@ -805,6 +806,14 @@
                     document.getElementById('editNit').value = caso.nit || '';
                     document.getElementById('editNeotel').value = caso.neotel || '';
                     document.getElementById('editOrden').value = caso.orden || '';
+                    
+                    // Asignar Cola y Motivo a los selects de edición
+                    if(catalogosGlobales.colas) llenarSelect('editCola', catalogosGlobales.colas);
+                    document.getElementById('editCola').value = caso.cola || '';
+                    
+                    if(catalogosGlobales.motivos) llenarSelect('editMotivo', catalogosGlobales.motivos);
+                    document.getElementById('editMotivo').value = caso.motivo || '';
+
                     document.getElementById('editSatisfaccion').value = caso.satisfaccion || 'No Evaluado';
                     
                     document.getElementById('updateEstatus').value = caso.estatus;
@@ -840,10 +849,16 @@
         window.guardarEdicionDatos = async function() {
             try {
                 await updateDoc(doc(db, "casos_escalados", casoSeleccionadoId), {
-                    telefono: document.getElementById('editTelefono').value, cliente: document.getElementById('editCliente').value,
-                    nit: document.getElementById('editNit').value, neotel: document.getElementById('editNeotel').value, orden: document.getElementById('editOrden').value,
-                    satisfaccion: document.getElementById('editSatisfaccion').value, nivel_riesgo: document.querySelector('input[name="editRiesgo"]:checked').value,
-                    historial: arrayUnion({ fecha: new Date().toISOString(), usuario: auth.currentUser.email, accion: "Edición Info", estatus: document.getElementById('updateEstatus').value, nota: "Actualización de datos generales o riesgo." })
+                    telefono: document.getElementById('editTelefono').value, 
+                    cliente: document.getElementById('editCliente').value,
+                    nit: document.getElementById('editNit').value, 
+                    neotel: document.getElementById('editNeotel').value, 
+                    orden: document.getElementById('editOrden').value,
+                    cola: document.getElementById('editCola').value, // Guardar nueva cola
+                    motivo: document.getElementById('editMotivo').value, // Guardar nuevo motivo
+                    satisfaccion: document.getElementById('editSatisfaccion').value, 
+                    nivel_riesgo: document.querySelector('input[name="editRiesgo"]:checked').value,
+                    historial: arrayUnion({ fecha: new Date().toISOString(), usuario: auth.currentUser.email, accion: "Edición Info", estatus: document.getElementById('updateEstatus').value, nota: "Actualización de datos generales, cola/motivo o riesgo." })
                 });
                 mostrarNotificacion("Datos actualizados");
             } catch (error) { mostrarNotificacion("Error al guardar", "error"); }
