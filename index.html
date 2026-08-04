@@ -60,7 +60,8 @@
         .kpi-card h4 { margin: 0 0 10px 0; color: var(--text-muted); font-size: 0.85em; font-weight: 600; text-transform: uppercase;}
         .kpi-card .numero { margin: 0; font-size: 2.2em; font-weight: 700; color: var(--primary); }
         
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 20px; margin-bottom: 25px; }
+        .charts-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
+        .charts-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
         .chart-container { background: var(--bg-card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center;}
         .chart-container h4 { margin: 0 0 15px 0; width: 100%; text-align: left; color: var(--text-muted); font-size: 0.9em; text-transform: uppercase;}
         canvas { max-height: 250px; width: 100% !important;}
@@ -185,10 +186,14 @@
                     <div class="kpi-card"><h4>Pendiente Llamar</h4><p class="numero" id="kpiLlamadas" style="color: #8b5cf6;">0</p></div>
                 </div>
 
-                <div class="charts-grid">
+                <div class="charts-row-3">
                     <div class="chart-container"><h4>Distribución por Riesgo</h4><canvas id="chartRiesgo"></canvas></div>
                     <div class="chart-container"><h4>Estatus de Operación</h4><canvas id="chartEstatus"></canvas></div>
-                    <div class="chart-container"><h4>Top Colas de Origen</h4><canvas id="chartColas"></canvas></div>
+                    <div class="chart-container"><h4>Satisfacción Global</h4><canvas id="chartSatisfaccion"></canvas></div>
+                </div>
+                <div class="charts-row-2">
+                    <div class="chart-container"><h4>Top 5 Colas de Origen</h4><canvas id="chartColas"></canvas></div>
+                    <div class="chart-container"><h4>Top 5 Motivos de Escalamiento</h4><canvas id="chartMotivos"></canvas></div>
                 </div>
 
                 <div class="section-card">
@@ -244,7 +249,7 @@
                     <div class="table-container">
                         <table id="tablaResueltos">
                             <thead>
-                                <tr><th>Ticket & Detalles</th><th>Contacto & IDs</th><th>Asesor & Motivo</th><th>Riesgo / Satisfacción</th><th>Última Actividad</th><th>Acción</th></tr>
+                                <tr><th>Ticket & Detalles</th><th>Contacto & IDs</th><th>Asesor & Motivo Final</th><th>Riesgo / Satisfacción</th><th>Última Actividad</th><th>Acción</th></tr>
                             </thead>
                             <tbody id="listaResueltos"></tbody>
                         </table>
@@ -272,7 +277,7 @@
                     <div class="grid-3" style="margin-bottom: 15px;">
                         <div><div class="header-lista"><label>Cola Origen</label><button type="button" class="btn-add" onclick="agregarNube('cola', 'colas')">+ Nuevo</button></div><select id="cola" required></select></div>
                         <div><div class="header-lista"><label>Asesor que Escala</label><button type="button" class="btn-add" onclick="agregarNube('asesor', 'asesores')">+ Nuevo</button></div><select id="asesor" required></select></div>
-                        <div><div class="header-lista"><label>Motivo Principal</label><button type="button" class="btn-add" onclick="agregarNube('motivo', 'motivos')">+ Nuevo</button></div><select id="motivo" required></select></div>
+                        <div><div class="header-lista"><label>Motivo Inicial</label><button type="button" class="btn-add" onclick="agregarNube('motivo', 'motivos')">+ Nuevo</button></div><select id="motivo" required></select></div>
                     </div>
 
                     <div class="grid-2" style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid var(--border);">
@@ -383,14 +388,13 @@
                             <div><label>No. de Orden</label><input type="text" id="editOrden"></div>
                         </div>
                         
-                        <!-- NUEVO: Edición de Cola y Motivo -->
                         <div class="grid-2" style="margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px;">
                             <div>
                                 <label>Cola de Origen</label>
                                 <select id="editCola"></select>
                             </div>
                             <div>
-                                <label>Motivo Principal</label>
+                                <label>Motivo Inicial</label>
                                 <select id="editMotivo"></select>
                             </div>
                         </div>
@@ -428,12 +432,34 @@
                             </div>
                             <div>
                                 <label>Nuevo Estatus</label>
-                                <select id="updateEstatus" required style="font-weight: bold;">
+                                <select id="updateEstatus" required style="font-weight: bold;" onchange="toggleCierre()">
                                     <option value="En mis manos">En mis manos</option>
                                     <option value="En cancha interna">En área interna</option>
                                     <option value="En cancha cliente">Con el cliente</option>
                                     <option value="Resuelto" style="color: var(--success);">Cerrar (Resuelto)</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE DE CIERRE CON BOTÓN "NUEVO" INDEPENDIENTE -->
+                        <div id="bloqueCierre" style="display: none; background: #ecfdf5; padding: 15px; border: 1px dashed var(--success); border-radius: 8px; margin-bottom: 15px;">
+                            <h4 style="margin-top:0; color: var(--success); margin-bottom: 10px;">📋 Datos Finales de Cierre</h4>
+                            <div class="grid-2">
+                                <div>
+                                    <div class="header-lista" style="margin-bottom: 6px;">
+                                        <label style="margin:0;">Motivo Final Real</label>
+                                        <button type="button" class="btn-add" onclick="agregarNube('updateMotivoFinal', 'motivosFinales')">+ Nuevo</button>
+                                    </div>
+                                    <select id="updateMotivoFinal"></select>
+                                </div>
+                                <div>
+                                    <label style="margin-bottom: 6px;">Satisfacción al Cierre</label>
+                                    <select id="updateSatisfaccionFinal">
+                                        <option value="Satisfecho">😊 Satisfecho</option>
+                                        <option value="Neutral">😐 Neutral</option>
+                                        <option value="Insatisfecho">😡 Insatisfecho</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -487,7 +513,7 @@
         let casosParaGraficas = []; 
         let catalogosGlobales = {};
 
-        let chartR, chartE, chartC;
+        let chartR, chartE, chartC, chartSat, chartM;
 
         // --- FUNCIONES UI GENERALES ---
         window.mostrarNotificacion = function(mensaje, tipo = 'success') {
@@ -503,6 +529,11 @@
                 document.getElementById(dateId).value = "";
                 document.getElementById(turnId).value = "N/A";
             }
+        };
+
+        window.toggleCierre = function() {
+            const estatus = document.getElementById('updateEstatus').value;
+            document.getElementById('bloqueCierre').style.display = (estatus === 'Resuelto') ? 'block' : 'none';
         };
 
         window.cambiarModulo = function(modulo) {
@@ -574,21 +605,37 @@
             onSnapshot(doc(db, "configuracion", "listas_desplegables"), (docSnap) => {
                 if (docSnap.exists()) {
                     const d = docSnap.data();
-                    catalogosGlobales = d; // Guardar para reutilizar
+                    catalogosGlobales = d; 
                     
                     if(d.colas) { llenarSelect('cola', d.colas); llenarSelect('editCola', d.colas); }
                     if(d.asesores) llenarSelect('asesor', d.asesores);
                     if(d.motivos) { llenarSelect('motivo', d.motivos); llenarSelect('editMotivo', d.motivos); }
+                    
+                    // Cargar lista independiente para motivos finales
+                    if(d.motivosFinales && d.motivosFinales.length > 0) {
+                        llenarSelect('updateMotivoFinal', d.motivosFinales);
+                    } else if (d.motivos) {
+                        // Respaldo por si motivosFinales aún no existe en la base de datos
+                        llenarSelect('updateMotivoFinal', d.motivos);
+                    }
+                    
                     if(d.areas) llenarSelect('areaInterna', d.areas);
                 }
             });
         }
+
         function llenarSelect(id, datos) {
             const sel = document.getElementById(id); 
             if(!sel) return;
-            const val = sel.value; sel.innerHTML = '<option value="">Seleccione...</option>';
+            const val = sel.value; 
+            sel.innerHTML = '<option value="">Seleccione...</option>';
             datos.sort().forEach(i => sel.add(new Option(i, i)));
-            if (datos.includes(val)) sel.value = val;
+            
+            // Forzar que el valor previo siga existiendo aunque no esté en el array global (evita que se blanquee visualmente)
+            if (val && !datos.includes(val)) {
+                sel.add(new Option(val, val));
+            }
+            if(val) sel.value = val;
         }
 
         // --- SISTEMA CORE: DATOS, KPIS Y GRÁFICAS ---
@@ -657,6 +704,8 @@
             let actVerde = 0, actAmarillo = 0, actRojo = 0;
             let estatusCounts = { 'En mis manos': 0, 'En cancha interna': 0, 'En cancha cliente': 0, 'Resuelto': 0 };
             let colasCounts = {};
+            let satCounts = { 'Satisfecho': 0, 'Neutral': 0, 'Insatisfecho': 0, 'No Evaluado': 0 };
+            let motivosCounts = {};
 
             todosLosCasos.forEach(c => {
                 if(c.estatus !== 'Resuelto'){
@@ -664,8 +713,15 @@
                     if(c.nivel_riesgo === 'Amarillo') actAmarillo++;
                     if(c.nivel_riesgo === 'Rojo') actRojo++;
                 }
+                
                 if(estatusCounts[c.estatus] !== undefined) estatusCounts[c.estatus]++;
                 if(c.estatus !== 'Resuelto') colasCounts[c.cola] = (colasCounts[c.cola] || 0) + 1;
+                
+                const sat = c.satisfaccion || 'No Evaluado';
+                if(satCounts[sat] !== undefined) satCounts[sat]++;
+                
+                const m = c.motivo_final || c.motivo || 'Sin definir';
+                motivosCounts[m] = (motivosCounts[m] || 0) + 1;
             });
 
             if(chartR) chartR.destroy();
@@ -682,13 +738,31 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels:{boxWidth:12} } }, cutout: '50%' }
             });
 
+            if(chartSat) chartSat.destroy();
+            chartSat = new Chart(document.getElementById('chartSatisfaccion').getContext('2d'), {
+                type: 'pie',
+                data: { 
+                    labels: ['😊 Satisfecho', '😐 Neutral', '😡 Insatisfecho', '⚪ No Evaluado'], 
+                    datasets: [{ data: [satCounts['Satisfecho'], satCounts['Neutral'], satCounts['Insatisfecho'], satCounts['No Evaluado']], backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#cbd5e1'], borderWidth: 0 }] 
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels:{boxWidth:12} } } }
+            });
+
             const colasOrdenadas = Object.keys(colasCounts).sort((a,b) => colasCounts[b] - colasCounts[a]).slice(0, 5);
             const datosColas = colasOrdenadas.map(cola => colasCounts[cola]);
-
             if(chartC) chartC.destroy();
             chartC = new Chart(document.getElementById('chartColas').getContext('2d'), {
                 type: 'bar',
                 data: { labels: colasOrdenadas.length > 0 ? colasOrdenadas : ['Sin datos'], datasets: [{ label: 'Casos Activos', data: datosColas.length > 0 ? datosColas : [0], backgroundColor: '#38bdf8', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            });
+
+            const motivosOrdenados = Object.keys(motivosCounts).sort((a,b) => motivosCounts[b] - motivosCounts[a]).slice(0, 5);
+            const datosMotivos = motivosOrdenados.map(m => motivosCounts[m]);
+            if(chartM) chartM.destroy();
+            chartM = new Chart(document.getElementById('chartMotivos').getContext('2d'), {
+                type: 'bar',
+                data: { labels: motivosOrdenados.length > 0 ? motivosOrdenados : ['Sin datos'], datasets: [{ label: 'Frecuencia', data: datosMotivos.length > 0 ? datosMotivos : [0], backgroundColor: '#8b5cf6', borderRadius: 4 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             });
         }
@@ -712,7 +786,9 @@
                 let htmlLlamada = esActivo ? (caso.estado_llamada === 'Contactado' ? `<br><span style="font-size:0.8em; color:var(--success); font-weight:600;">✓ Contactado</span>` : `<br><span style="font-size:0.8em; color:var(--danger); font-weight:600;">⚠ Llamar</span>`) : '';
                 let textoPromesa = (esActivo && caso.fecha_promesa && caso.fecha_promesa !== '') ? `<br><small style="color:var(--primary); font-weight:600;">⏰ ${formateaPromesa(caso.fecha_promesa, caso.turno_promesa)}</small>` : '';
                 let satisfaccion = `<br><span class="pildora p-sat">${caso.satisfaccion || 'No Evaluado'}</span>`;
-                let asesorInfo = `<span style="font-weight:600; color:var(--text-main);"><span class="pildora p-info">${caso.asesor}</span></span><br><small style="color:var(--text-muted);">${caso.motivo}</small>`;
+                
+                let motivoAMostrar = (!esActivo && caso.motivo_final) ? `🏁 ${caso.motivo_final}` : caso.motivo;
+                let asesorInfo = `<span style="font-weight:600; color:var(--text-main);"><span class="pildora p-info">${caso.asesor}</span></span><br><small style="color:var(--text-muted);">${motivoAMostrar}</small>`;
 
                 let badgeGestionHoy = "";
                 if(esActivo) {
@@ -752,7 +828,7 @@
             renderizarTabla(filtActivos, 'listaActivos', true);
 
             const txtResueltos = document.getElementById('busquedaResueltos').value.toLowerCase();
-            const filtResueltos = casosGlobalesResueltos.filter(c => `${c.telefono} ${c.cliente} ${c.ticket} ${c.asesor || ''} ${c.motivo || ''} ${c.nit || ''} ${c.neotel || ''} ${c.orden || ''}`.toLowerCase().includes(txtResueltos));
+            const filtResueltos = casosGlobalesResueltos.filter(c => `${c.telefono} ${c.cliente} ${c.ticket} ${c.asesor || ''} ${c.motivo_final || c.motivo || ''} ${c.nit || ''} ${c.neotel || ''} ${c.orden || ''}`.toLowerCase().includes(txtResueltos));
             renderizarTabla(filtResueltos, 'listaResueltos', false);
         };
 
@@ -807,7 +883,6 @@
                     document.getElementById('editNeotel').value = caso.neotel || '';
                     document.getElementById('editOrden').value = caso.orden || '';
                     
-                    // Asignar Cola y Motivo a los selects de edición
                     if(catalogosGlobales.colas) llenarSelect('editCola', catalogosGlobales.colas);
                     document.getElementById('editCola').value = caso.cola || '';
                     
@@ -817,6 +892,23 @@
                     document.getElementById('editSatisfaccion').value = caso.satisfaccion || 'No Evaluado';
                     
                     document.getElementById('updateEstatus').value = caso.estatus;
+                    toggleCierre(); 
+                    
+                    // Asignación inteligente para el Motivo Final
+                    const valFinal = caso.motivo_final || caso.motivo || '';
+                    if(catalogosGlobales.motivosFinales && catalogosGlobales.motivosFinales.length > 0) {
+                        llenarSelect('updateMotivoFinal', catalogosGlobales.motivosFinales);
+                    } else if (catalogosGlobales.motivos) {
+                        llenarSelect('updateMotivoFinal', catalogosGlobales.motivos);
+                    }
+                    
+                    const selUpdateMotivo = document.getElementById('updateMotivoFinal');
+                    let existeOpt = Array.from(selUpdateMotivo.options).some(opt => opt.value === valFinal);
+                    if(!existeOpt && valFinal) selUpdateMotivo.add(new Option(valFinal, valFinal));
+                    selUpdateMotivo.value = valFinal;
+
+                    document.getElementById('updateSatisfaccionFinal').value = caso.satisfaccion || 'Satisfecho';
+
                     document.getElementById('updateLlamada').value = caso.estado_llamada;
                     
                     const tieneP = (caso.fecha_promesa && caso.fecha_promesa !== "");
@@ -854,8 +946,8 @@
                     nit: document.getElementById('editNit').value, 
                     neotel: document.getElementById('editNeotel').value, 
                     orden: document.getElementById('editOrden').value,
-                    cola: document.getElementById('editCola').value, // Guardar nueva cola
-                    motivo: document.getElementById('editMotivo').value, // Guardar nuevo motivo
+                    cola: document.getElementById('editCola').value, 
+                    motivo: document.getElementById('editMotivo').value,
                     satisfaccion: document.getElementById('editSatisfaccion').value, 
                     nivel_riesgo: document.querySelector('input[name="editRiesgo"]:checked').value,
                     historial: arrayUnion({ fecha: new Date().toISOString(), usuario: auth.currentUser.email, accion: "Edición Info", estatus: document.getElementById('updateEstatus').value, nota: "Actualización de datos generales, cola/motivo o riesgo." })
@@ -865,19 +957,40 @@
         };
 
         window.guardarActualizacion = async function() {
-            const nota = document.getElementById('updateNota').value;
+            let nota = document.getElementById('updateNota').value;
             const eStatus = document.getElementById('updateEstatus').value;
             if(!nota.trim()) return mostrarNotificacion("Escribe un detalle de gestión", "error");
             
             const checkP = document.getElementById('updateTienePromesa').checked;
+            
+            const updatePayload = {
+                estatus: eStatus, estado_llamada: document.getElementById('updateLlamada').value,
+                fecha_promesa: checkP ? document.getElementById('updateFechaPromesa').value : "", 
+                turno_promesa: checkP ? document.getElementById('updateTurnoPromesa').value : "N/A"
+            };
+
+            if(eStatus === 'Resuelto') {
+                const motivoF = document.getElementById('updateMotivoFinal').value;
+                const satisfaccionF = document.getElementById('updateSatisfaccionFinal').value;
+                
+                if(!motivoF) return mostrarNotificacion("Selecciona el Motivo Final de Cierre", "error");
+                
+                updatePayload.motivo_final = motivoF;
+                updatePayload.satisfaccion = satisfaccionF;
+                
+                nota = `[CIERRE DE CASO] Motivo Real: ${motivoF} | Satisfacción: ${satisfaccionF} | ${nota}`;
+            }
+
+            updatePayload.historial = arrayUnion({ 
+                fecha: new Date().toISOString(), 
+                usuario: auth.currentUser.email, 
+                accion: "Seguimiento", 
+                estatus: eStatus, 
+                nota: nota 
+            });
 
             try {
-                await updateDoc(doc(db, "casos_escalados", casoSeleccionadoId), {
-                    estatus: eStatus, estado_llamada: document.getElementById('updateLlamada').value,
-                    fecha_promesa: checkP ? document.getElementById('updateFechaPromesa').value : "", 
-                    turno_promesa: checkP ? document.getElementById('updateTurnoPromesa').value : "N/A",
-                    historial: arrayUnion({ fecha: new Date().toISOString(), usuario: auth.currentUser.email, accion: "Seguimiento", estatus: eStatus, nota: nota })
-                });
+                await updateDoc(doc(db, "casos_escalados", casoSeleccionadoId), updatePayload);
                 document.getElementById('updateNota').value = ''; 
                 mostrarNotificacion("Seguimiento registrado");
                 
