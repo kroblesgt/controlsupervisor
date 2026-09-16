@@ -82,7 +82,8 @@
         
         .semaforo-container { display: flex; gap: 15px; margin-bottom: 15px;}
         .semaforo-opcion { flex: 1; position: relative; }
-        .semaforo-opcion input[type="radio"] { display: none; }
+        /* CORRECCIÓN DE ERROR NATIVO DEL SEMÁFORO */
+        .semaforo-opcion input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
         .semaforo-label { display: block; padding: 12px; text-align: center; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-size: 0.9em; transition: 0.2s;}
         .semaforo-opcion input[type="radio"]:checked + .semaforo-label { color: white; border: none; }
         .semaforo-opcion input[type="radio"]:checked + .semaforo-label.riesgo-verde { background-color: var(--success); }
@@ -309,6 +310,7 @@
                             <select id="estadoLlamada" required>
                                 <option value="Pendiente">Pendiente de Llamar</option>
                                 <option value="Contactado">Ya Contactado</option>
+                                <option value="Delegado">Delegado / No requiere llamada</option>
                             </select>
                         </div>
                     </div>
@@ -428,6 +430,7 @@
                                 <select id="updateLlamada" required>
                                     <option value="Pendiente">Pendiente de Llamar</option>
                                     <option value="Contactado">Ya Contactado</option>
+                                    <option value="Delegado">Delegado / No requiere llamada</option>
                                 </select>
                             </div>
                             <div>
@@ -611,11 +614,9 @@
                     if(d.asesores) llenarSelect('asesor', d.asesores);
                     if(d.motivos) { llenarSelect('motivo', d.motivos); llenarSelect('editMotivo', d.motivos); }
                     
-                    // Cargar lista independiente para motivos finales
                     if(d.motivosFinales && d.motivosFinales.length > 0) {
                         llenarSelect('updateMotivoFinal', d.motivosFinales);
                     } else if (d.motivos) {
-                        // Respaldo por si motivosFinales aún no existe en la base de datos
                         llenarSelect('updateMotivoFinal', d.motivos);
                     }
                     
@@ -631,7 +632,6 @@
             sel.innerHTML = '<option value="">Seleccione...</option>';
             datos.sort().forEach(i => sel.add(new Option(i, i)));
             
-            // Forzar que el valor previo siga existiendo aunque no esté en el array global (evita que se blanquee visualmente)
             if (val && !datos.includes(val)) {
                 sel.add(new Option(val, val));
             }
@@ -783,7 +783,14 @@
             arrayCasos.forEach(caso => {
                 let pRiesgo = caso.nivel_riesgo === 'Verde' ? 'p-verde' : caso.nivel_riesgo === 'Amarillo' ? 'p-amarillo' : 'p-rojo';
                 let htmlEstatus = `<span class="pildora p-gris">${caso.estatus}</span>`;
-                let htmlLlamada = esActivo ? (caso.estado_llamada === 'Contactado' ? `<br><span style="font-size:0.8em; color:var(--success); font-weight:600;">✓ Contactado</span>` : `<br><span style="font-size:0.8em; color:var(--danger); font-weight:600;">⚠ Llamar</span>`) : '';
+                
+                let htmlLlamada = '';
+                if (esActivo) {
+                    if (caso.estado_llamada === 'Contactado') htmlLlamada = `<br><span style="font-size:0.8em; color:var(--success); font-weight:600;">✓ Contactado</span>`;
+                    else if (caso.estado_llamada === 'Delegado') htmlLlamada = `<br><span style="font-size:0.8em; color:var(--text-muted); font-weight:600;">↪ Delegado/Sin Llamada</span>`;
+                    else htmlLlamada = `<br><span style="font-size:0.8em; color:var(--danger); font-weight:600;">⚠ Llamar</span>`;
+                }
+
                 let textoPromesa = (esActivo && caso.fecha_promesa && caso.fecha_promesa !== '') ? `<br><small style="color:var(--primary); font-weight:600;">⏰ ${formateaPromesa(caso.fecha_promesa, caso.turno_promesa)}</small>` : '';
                 let satisfaccion = `<br><span class="pildora p-sat">${caso.satisfaccion || 'No Evaluado'}</span>`;
                 
@@ -820,7 +827,7 @@
                 
                 let matchFiltroHoy = true;
                 const loToqueHoy = fueGestionadoHoy(c.historial);
-                if(filtroGestion === 'sin_tocar') matchFiltroHoy = !loToqueHoy;
+                if(filtroGestion === 'sin_tocar') matchFiltroHoy = !loToqueHoy && c.estado_llamada !== 'Delegado';
                 if(filtroGestion === 'tocados') matchFiltroHoy = loToqueHoy;
 
                 return matchTexto && matchFiltroHoy;
@@ -835,6 +842,12 @@
         // --- CREAR CASO ---
         document.getElementById('nuevoCasoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const riesgoSeleccionado = document.querySelector('input[name="riesgo"]:checked');
+            if (!riesgoSeleccionado) {
+                return mostrarNotificacion("⚠️ Selecciona un nivel en el Semáforo de Riesgo", "error");
+            }
+
             const f = new Date();
             const ticketNuevo = `ST-${String(f.getDate()).padStart(2,'0')}${String(f.getMonth()+1).padStart(2,'0')}-${Math.floor(1000 + Math.random() * 9000)}`;
             const estatusInicial = document.getElementById('estatusAccion').value;
@@ -847,7 +860,7 @@
                 cola: document.getElementById('cola').value, asesor: document.getElementById('asesor').value, 
                 motivo: document.getElementById('motivo').value, area_interna: document.getElementById('areaInterna').value, 
                 contacto_interno: document.getElementById('contactoInterno').value, 
-                nivel_riesgo: document.querySelector('input[name="riesgo"]:checked').value, satisfaccion: document.getElementById('satisfaccion').value,
+                nivel_riesgo: riesgoSeleccionado.value, satisfaccion: document.getElementById('satisfaccion').value,
                 estatus: estatusInicial, estado_llamada: document.getElementById('estadoLlamada').value,
                 fecha_promesa: checkPromesa ? document.getElementById('fechaPromesa').value : "", 
                 turno_promesa: checkPromesa ? document.getElementById('turnoPromesa').value : "N/A", 
@@ -894,7 +907,6 @@
                     document.getElementById('updateEstatus').value = caso.estatus;
                     toggleCierre(); 
                     
-                    // Asignación inteligente para el Motivo Final
                     const valFinal = caso.motivo_final || caso.motivo || '';
                     if(catalogosGlobales.motivosFinales && catalogosGlobales.motivosFinales.length > 0) {
                         llenarSelect('updateMotivoFinal', catalogosGlobales.motivosFinales);
